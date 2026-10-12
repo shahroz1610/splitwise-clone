@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --subtle: #f4f4f5;
+  --border: #e4e4e7;
+  --fg: #18181b;
+  --muted: #71717a;
+  --accent: #18181b;
+  --accent-fg: #ffffff;
+  --owed: #059669;
+  --owed-soft: #ecfdf5;
+  --owe: #ea580c;
+  --owe-soft: #fff7ed;
+  --danger: #dc2626;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #09090b;
+    --surface: #131316;
+    --subtle: #1f1f23;
+    --border: #2a2a2f;
+    --fg: #fafafa;
+    --muted: #a1a1aa;
+    --accent: #fafafa;
+    --accent-fg: #18181b;
+    --owed: #34d399;
+    --owed-soft: #052e22;
+    --owe: #fb923c;
+    --owe-soft: #2f1606;
+    --danger: #f87171;
+    color-scheme: dark;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-owed: var(--owed);
+  --color-owed-soft: var(--owed-soft);
+  --color-owe: var(--owe);
+  --color-owe-soft: var(--owe-soft);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }

@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Split — a Splitwise clone for one group
 
-## Getting Started
+Track shared expenses for a single group: add people, log expenses with four split methods,
+see who owes whom (with **simplify debts**), record settle-up payments, and browse activity and spending charts.
 
-First, run the development server:
+Built with Next.js (App Router), Tailwind CSS, Recharts and Supabase (Postgres).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- **Expenses** — description, amount, payer, date, category, notes. Split **equally**, by **exact amounts**,
+  **percentages**, or **shares**, with a live per-person preview. Edit and delete. Search and filter by category/person.
+- **Balances** — total balance per person and a "who owes whom" list. **Simplify debts** toggle minimises the number
+  of payments (greedy largest-debtor ↔ largest-creditor matching, at most _n − 1_ payments); off shows plain pairwise debts.
+- **Settle up** — record a payment between two people; one-click "Settle" on any debt prefills it.
+- **People** — add, rename, delete (if they have no history) or archive (once settled up) members.
+- **Viewing as** — pick yourself (remembered per browser) to see "you owe / you are owed / you lent / you borrowed".
+- **Activity feed** — every change is logged with who made it.
+- **Insights** — spending by category, by month, and paid-vs-share per person; whole group or just your share.
+- **Settings** — group name, display currency, simplify-debts default, lock/unlock editing.
+
+## How data access works (no auth)
+
+- The browser never talks to Supabase. All reads and writes go through Next.js route handlers in `src/app/api/`,
+  which use the **service role key** server-side.
+- RLS is enabled on every table with **no policies**, so the public anon key can't read or write anything.
+- **Anyone with the link can view.** Writes require the `GROUP_PASSCODE`; entering it once sets an httpOnly cookie
+  (an HMAC of the passcode) on that device. If `GROUP_PASSCODE` is empty, anyone can edit.
+- Money is stored as integer cents. Split amounts are computed on the server and saved atomically through the
+  `save_expense` Postgres function, which also checks that shares add up to the total.
+
+## Setup
+
+1. **Create a Supabase project**, open the SQL editor, and run [`supabase/schema.sql`](supabase/schema.sql).
+2. **Configure env vars**: copy `.env.example` to `.env.local` and fill in `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY` and `GROUP_PASSCODE`.
+3. **Run locally**:
+   ```bash
+   npm install
+   npm run dev
+   ```
+   Open http://localhost:3000, go to **People** and add everyone in the group.
+
+## Deploy to Vercel
+
+1. Push this folder to a Git repo and import it in Vercel (framework preset: Next.js — no extra config needed).
+2. Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `GROUP_PASSCODE` under **Project → Settings → Environment Variables**.
+3. Deploy, then share the URL and the passcode with the group.
+
+## Project layout
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+supabase/schema.sql          tables, RLS, save_expense()
+src/lib/splits.ts            split maths (largest-remainder rounding)
+src/lib/balances.ts          net balances, pairwise debts, simplify debts
+src/lib/server/              Supabase client, passcode check, validation, data loading
+src/app/api/                 route handlers (state, expenses, payments, members, settings, unlock)
+src/components/              client UI: store (context), dialogs, expense form, tabs
+```
