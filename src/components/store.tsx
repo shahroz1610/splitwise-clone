@@ -3,9 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { groupDebts, type Debt, type MemberStats } from "@/lib/balances";
 import { formatMoney } from "@/lib/money";
-import type { Expense, GroupState, Member } from "@/lib/types";
-
-const ME_KEY = "split:viewing-as";
+import type { AuthGate, Expense, GroupState, Member } from "@/lib/types";
 
 export interface SettlePrefill {
   from?: string;
@@ -17,16 +15,18 @@ type Dialog =
   | { kind: "expense"; expense: Expense | null }
   | { kind: "expense-detail"; expense: Expense }
   | { kind: "settle"; prefill: SettlePrefill }
-  | { kind: "unlock" }
   | null;
 
 interface Store {
   state: GroupState | null;
+  /** Set when the user is signed out or hasn't joined the group yet. */
+  gate: AuthGate | null;
   loadError: string | null;
   reload: () => Promise<void>;
+  signOut: () => Promise<void>;
   api: <T = unknown>(method: string, path: string, body?: Record<string, unknown>) => Promise<T>;
+  /** The signed-in user's member id. */
   meId: string | null;
-  setMeId: (id: string | null) => void;
   me: Member | null;
   fmt: (cents: number) => string;
   member: (id: string) => Member | undefined;
@@ -35,8 +35,6 @@ interface Store {
   debts: Debt[];
   dialog: Dialog;
   setDialog: (d: Dialog) => void;
-  /** Run `fn` if this browser can edit; otherwise ask for the passcode first. */
-  requireEdit: (fn: () => void) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -52,24 +50,24 @@ export class ApiError extends Error {
 
 export function GroupProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GroupState | null>(null);
+  const [gate, setGate] = useState<AuthGate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Only read after mount-time render; the first paint is a loading state, so there's no hydration mismatch.
-  const [meId, setMeIdRaw] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      return localStorage.getItem(ME_KEY);
-    } catch {
-      return null;
-    }
-  });
   const [dialog, setDialog] = useState<Dialog>(null);
 
   const reload = useCallback(async () => {
     try {
       const res = await fetch("/api/state", { cache: "no-store" });
       const data = await res.json();
+      if (res.status === 401 || res.status === 403) {
+        setGate(data as AuthGate);
+        setState(null);
+        setDialog(null);
+        setLoadError(null);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Could not load the group.");
       setState(data);
+      setGate(null);
       setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Could not load the group.");
@@ -86,31 +84,26 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("focus", onFocus);
   }, [reload]);
 
-  const setMeId = useCallback((id: string | null) => {
-    setMeIdRaw(id);
-    try {
-      if (id) localStorage.setItem(ME_KEY, id);
-      else localStorage.removeItem(ME_KEY);
-    } catch {}
-  }, []);
+  const signOut = useCallback(async () => {
+    await fetch("/auth/signout", { method: "POST" });
+    await reload();
+  }, [reload]);
 
   const api = useCallback(
     async <T,>(method: string, path: string, body?: Record<string, unknown>): Promise<T> => {
       const res = await fetch(path, {
         method,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...body, actor: meId }),
+        body: JSON.stringify(body ?? {}),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setState((s) => (s ? { ...s, canEdit: false } : s));
-        setDialog({ kind: "unlock" });
-      }
+      // Session expired, or this member was removed from the group: re-check access.
+      if (res.status === 401 || res.status === 403) await reload();
       if (!res.ok) throw new ApiError(res.status, data.error ?? "Something went wrong.");
       await reload();
       return data as T;
     },
-    [meId, reload],
+    [reload],
   );
 
   const value = useMemo<Store>(() => {
@@ -123,15 +116,16 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       state?.payments ?? [],
       state?.settings.simplify_debts ?? true,
     );
-    const me = meId ? (byId.get(meId) ?? null) : null;
+    const meId = state?.viewer.member_id ?? null;
     return {
       state,
+      gate,
       loadError,
       reload,
+      signOut,
       api,
-      meId: me?.id ?? null,
-      setMeId,
-      me,
+      meId,
+      me: meId ? (byId.get(meId) ?? null) : null,
       fmt: (c: number) => formatMoney(c, currency),
       member: (id: string) => byId.get(id),
       activeMembers: members.filter((m) => !m.archived),
@@ -139,12 +133,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       debts,
       dialog,
       setDialog,
-      requireEdit: (fn) => {
-        if (state?.canEdit) fn();
-        else setDialog({ kind: "unlock" });
-      },
     };
-  }, [state, loadError, reload, api, meId, setMeId, dialog]);
+  }, [state, gate, loadError, reload, signOut, api, dialog]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

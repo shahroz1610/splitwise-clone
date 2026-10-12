@@ -162,7 +162,7 @@ function ExpenseRow({ e }: { e: Expense }) {
 }
 
 function PaymentRow({ p }: { p: Payment }) {
-  const { member, meId, fmt, api, requireEdit } = useGroup();
+  const { member, meId, fmt, api } = useGroup();
   const [confirm, setConfirm] = useState(false);
   const name = (id: string) => (id === meId ? "You" : member(id)?.name ?? "?");
   return (
@@ -188,7 +188,7 @@ function PaymentRow({ p }: { p: Payment }) {
           </Button>
         </div>
       ) : (
-        <button onClick={() => requireEdit(() => setConfirm(true))} className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-danger" aria-label="Delete payment">
+        <button onClick={() => setConfirm(true)} className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-danger" aria-label="Delete payment">
           <Trash2 size={15} />
         </button>
       )}

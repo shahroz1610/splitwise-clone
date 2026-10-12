@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import type { Member } from "@/lib/types";
 
 export function cx(...parts: (string | false | null | undefined)[]) {
@@ -67,6 +67,22 @@ export function Card({ className, children }: { className?: string; children: Re
 }
 
 export function Avatar({ member, size = 32 }: { member?: Member | null; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  if (member?.avatar_url && !broken) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={member.avatar_url}
+        alt=""
+        width={size}
+        height={size}
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   const name = member?.name ?? "?";
   const initials = name
     .split(/\s+/)

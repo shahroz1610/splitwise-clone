@@ -7,21 +7,19 @@ import { useGroup } from "../store";
 import { Avatar, Button, Card, cx, Empty, Toggle } from "../ui";
 
 export function BalancesTab() {
-  const { state, members, stats, debts, fmt, member, meId, api, requireEdit, setDialog } = useBalances();
+  const { state, members, stats, debts, fmt, member, meId, api, setDialog } = useBalances();
   const [busy, setBusy] = useState(false);
   const simplify = state.settings.simplify_debts;
   const unsimplifiedCount = pairwiseDebts(state.expenses, state.payments).length;
   const maxAbs = Math.max(1, ...members.map((m) => Math.abs(stats.get(m.id)?.net ?? 0)));
 
   async function toggleSimplify(v: boolean) {
-    requireEdit(async () => {
-      setBusy(true);
-      try {
-        await api("PATCH", "/api/settings", { simplify_debts: v });
-      } finally {
-        setBusy(false);
-      }
-    });
+    setBusy(true);
+    try {
+      await api("PATCH", "/api/settings", { simplify_debts: v });
+    } finally {
+      setBusy(false);
+    }
   }
 
   const sortedDebts = meId ? [...debts].sort((a, b) => Number(b.from === meId || b.to === meId) - Number(a.from === meId || a.to === meId)) : debts;
@@ -69,7 +67,7 @@ export function BalancesTab() {
                     <Button
                       size="sm"
                       className="ml-1"
-                      onClick={() => requireEdit(() => setDialog({ kind: "settle", prefill: { from: d.from, to: d.to, amount: d.amount } }))}
+                      onClick={() => setDialog({ kind: "settle", prefill: { from: d.from, to: d.to, amount: d.amount } })}
                     >
                       Settle
                     </Button>

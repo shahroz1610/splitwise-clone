@@ -34,6 +34,7 @@ export const PATCH = mutation<Ctx>(async (body, ctx) => {
     }
   }
   if (typeof body.archived === "boolean" && body.archived !== member.archived) {
+    if (body.archived && id === body.actor) throw new HttpError(409, "You can't remove yourself from the group.");
     if (body.archived && net !== 0) throw new HttpError(409, `${member.name} needs to be settled up before being removed.`);
     update.archived = body.archived;
     messages.push(body.archived ? `Removed ${member.name} from the group` : `Restored ${member.name} to the group`);
@@ -48,6 +49,7 @@ export const PATCH = mutation<Ctx>(async (body, ctx) => {
 export const DELETE = mutation<Ctx>(async (body, ctx) => {
   const { id } = await ctx.params;
   const { member, referenced } = await balanceOf(id);
+  if (id === body.actor) throw new HttpError(409, "You can't remove yourself from the group.");
   if (referenced) throw new HttpError(409, `${member.name} has expenses or payments, so they can only be archived.`);
   check(await db().from("members").delete().eq("id", id));
   await logActivity({ kind: "member_removed", message: `Removed ${member.name} from the group`, actor: body.actor });

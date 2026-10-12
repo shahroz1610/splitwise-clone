@@ -21,7 +21,11 @@ export async function loadGroup() {
   const expenseRows = (check(expenses) ?? []) as ExpenseRow[];
   return {
     settings: (check(settings) as Settings | null) ?? { group_name: "Our Group", currency: "USD", simplify_debts: true },
-    members: (check(members) ?? []) as Member[],
+    // Don't send auth user ids to the browser; the client only needs to know who has joined.
+    members: ((check(members) ?? []) as (Member & { auth_user_id: string | null })[]).map(({ auth_user_id, ...m }) => ({
+      ...m,
+      linked: Boolean(auth_user_id),
+    })),
     expenses: expenseRows.map(({ expense_splits, ...e }) => ({
       ...e,
       amount_cents: Number(e.amount_cents),

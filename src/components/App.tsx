@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BarChart3, Lock, Plus, Receipt, Scale, Settings, Unlock, Users } from "lucide-react";
+import { Activity, BarChart3, LogOut, Plus, Receipt, Scale, Settings, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Dialogs } from "./Dialogs";
 import { GroupProvider, useGroup } from "./store";
@@ -10,7 +10,8 @@ import { ExpensesTab } from "./tabs/ExpensesTab";
 import { InsightsTab } from "./tabs/InsightsTab";
 import { PeopleTab } from "./tabs/PeopleTab";
 import { SettingsTab } from "./tabs/SettingsTab";
-import { Avatar, Button, Card, cx, Select } from "./ui";
+import { AuthScreen } from "./AuthScreen";
+import { Avatar, Button, Card, cx } from "./ui";
 
 const TABS = [
   { id: "expenses", label: "Expenses", icon: Receipt },
@@ -46,8 +47,10 @@ function useHashTab(): [TabId, (t: TabId) => void] {
 }
 
 function Shell() {
-  const { state, loadError, reload, requireEdit, setDialog, activeMembers } = useGroup();
+  const { state, gate, loadError, reload, setDialog, activeMembers } = useGroup();
   const [tab, setTab] = useHashTab();
+
+  if (gate) return <AuthScreen gate={gate} />;
 
   if (!state) {
     return (
@@ -68,8 +71,8 @@ function Shell() {
   }
 
   const addExpense = () =>
-    requireEdit(() => (activeMembers.length ? setDialog({ kind: "expense", expense: null }) : setTab("people")));
-  const settleUp = () => requireEdit(() => setDialog({ kind: "settle", prefill: {} }));
+    (activeMembers.length ? setDialog({ kind: "expense", expense: null }) : setTab("people"));
+  const settleUp = () => setDialog({ kind: "settle", prefill: {} });
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-28 sm:px-6 sm:pb-12">
@@ -115,13 +118,8 @@ function Shell() {
 }
 
 function Header({ onAdd, onSettle }: { onAdd: () => void; onSettle: () => void }) {
-  const { state, activeMembers, me, meId, setMeId, setDialog, reload } = useGroup();
+  const { state, activeMembers, me, signOut } = useGroup();
   const s = state!;
-
-  async function lock() {
-    await fetch("/api/unlock", { method: "DELETE" });
-    await reload();
-  }
 
   return (
     <header className="flex flex-wrap items-center gap-3 py-5 sm:py-7">
@@ -142,27 +140,13 @@ function Header({ onAdd, onSettle }: { onAdd: () => void; onSettle: () => void }
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2">
-          <span className="hidden text-xs whitespace-nowrap text-muted md:inline">Viewing as</span>
-          <Select value={meId ?? ""} onChange={(e) => setMeId(e.target.value || null)} className="h-9 w-36 text-[13px]" aria-label="Viewing as">
-            <option value="">Everyone</option>
-            {activeMembers.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
-        </label>
-        {s.passcodeRequired &&
-          (s.canEdit ? (
-            <Button variant="ghost" size="sm" onClick={lock} title="Editing unlocked on this device — click to lock">
-              <Unlock size={15} />
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => setDialog({ kind: "unlock" })}>
-              <Lock size={14} /> Unlock
-            </Button>
-          ))}
+        <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-1 pl-1">
+          <Avatar member={me} size={28} />
+          <span className="hidden max-w-32 truncate text-[13px] font-medium md:inline">{me?.name}</span>
+          <button onClick={signOut} className="rounded-full p-1.5 text-muted hover:bg-subtle hover:text-fg" title={`Sign out ${s.viewer.email}`} aria-label="Sign out">
+            <LogOut size={15} />
+          </button>
+        </div>
         <div className="hidden gap-2 sm:flex">
           <Button onClick={onSettle}>Settle up</Button>
           <Button variant="primary" onClick={onAdd}>
@@ -170,9 +154,6 @@ function Header({ onAdd, onSettle }: { onAdd: () => void; onSettle: () => void }
           </Button>
         </div>
       </div>
-      {me === null && meId === null && activeMembers.length > 0 && (
-        <p className="w-full text-xs text-muted">Tip: pick yourself under “Viewing as” to see what you owe and are owed.</p>
-      )}
     </header>
   );
 }

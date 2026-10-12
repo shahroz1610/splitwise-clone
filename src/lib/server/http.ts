@@ -1,5 +1,5 @@
 import "server-only";
-import { canEdit } from "./auth";
+import { getViewer, type Viewer } from "./auth";
 import { db } from "./supabase";
 
 export class HttpError extends Error {
@@ -15,15 +15,27 @@ export function json(data: unknown, status = 200) {
   return Response.json(data, { status });
 }
 
-/** Wrap a mutating route handler: enforce the passcode, parse JSON, and map errors to responses. */
+/** Signed-in Google user who has joined the group, or an HttpError explaining what's missing. */
+export async function requireMember(): Promise<Viewer & { member: NonNullable<Viewer["member"]> }> {
+  const viewer = await getViewer();
+  if (!viewer) throw new HttpError(401, "Sign in with Google to continue.");
+  if (!viewer.member) throw new HttpError(403, "Join the group with the passcode first.");
+  return viewer as Viewer & { member: NonNullable<Viewer["member"]> };
+}
+
+/**
+ * Wrap a mutating route handler: require a joined member, parse JSON, and map errors to responses.
+ * `body.actor` is always overwritten with the signed-in member's id, so activity can't be spoofed.
+ */
 export function mutation<Ctx>(handler: (body: Record<string, unknown>, ctx: Ctx) => Promise<unknown>) {
   return async (req: Request, ctx: Ctx) => {
     try {
-      if (!(await canEdit())) throw new HttpError(401, "Enter the group passcode to make changes.");
+      const viewer = await requireMember();
       let body: Record<string, unknown> = {};
       if (req.headers.get("content-type")?.includes("application/json")) {
         body = (await req.json().catch(() => ({}))) ?? {};
       }
+      body.actor = viewer.member.id;
       const result = await handler(body, ctx);
       return json(result ?? { ok: true });
     } catch (err) {

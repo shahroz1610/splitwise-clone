@@ -1,5 +1,5 @@
 -- Splitwise clone schema (single group).
--- Run this once in the Supabase SQL editor.
+-- Run this once in the Supabase SQL editor (new projects). Existing projects: run migrations/ instead.
 -- All money is stored as integer cents to avoid floating point drift.
 -- RLS is enabled with no policies: the anon key cannot read or write anything.
 -- The Next.js server talks to Supabase with the service role key, which bypasses RLS.
@@ -20,6 +20,10 @@ create table if not exists members (
   name text not null check (char_length(name) between 1 and 60),
   color text not null default '#6366f1',
   archived boolean not null default false,
+  -- The Google account (Supabase Auth user) that has claimed this member, if any.
+  auth_user_id uuid unique references auth.users (id) on delete set null,
+  email text,
+  avatar_url text,
   created_at timestamptz not null default now()
 );
 

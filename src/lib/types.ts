@@ -12,6 +12,10 @@ export interface Member {
   color: string;
   archived: boolean;
   created_at: string;
+  email: string | null;
+  avatar_url: string | null;
+  /** Whether a Google account has claimed this member. */
+  linked: boolean;
 }
 
 export interface ExpenseSplit {
@@ -59,10 +63,14 @@ export interface GroupState {
   expenses: Expense[];
   payments: Payment[];
   activity: Activity[];
-  /** Whether this browser may make changes (passcode accepted, or no passcode configured). */
-  canEdit: boolean;
-  passcodeRequired: boolean;
+  /** The signed-in Google user, always linked to a member by the time state is returned. */
+  viewer: { member_id: string; email: string; name: string; avatar_url: string | null };
 }
+
+/** Returned by /api/state when the user can't see the group yet. */
+export type AuthGate =
+  | { code: "signed_out" }
+  | { code: "not_joined"; email: string; name: string; avatar_url: string | null; removed: boolean };
 
 /** Payload the client sends to create/update an expense. Shares are computed on the server. */
 export interface ExpenseInput {

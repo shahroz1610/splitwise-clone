@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Lock, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { getCategory } from "@/lib/categories";
 import { centsToInput, toCents } from "@/lib/money";
@@ -20,8 +20,6 @@ export function Dialogs() {
       return <ExpenseDetail expense={dialog.expense} onClose={close} />;
     case "settle":
       return <SettleForm prefill={dialog.prefill} onClose={close} />;
-    case "unlock":
-      return <UnlockDialog onClose={close} />;
   }
 }
 
@@ -125,7 +123,7 @@ function SettleForm({ prefill, onClose }: { prefill: SettlePrefill; onClose: () 
 }
 
 function ExpenseDetail({ expense, onClose }: { expense: Expense; onClose: () => void }) {
-  const { member, fmt, meId, api, setDialog, requireEdit } = useGroup();
+  const { member, fmt, meId, api, setDialog } = useGroup();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cat = getCategory(expense.category);
@@ -160,10 +158,10 @@ function ExpenseDetail({ expense, onClose }: { expense: Expense; onClose: () => 
           </>
         ) : (
           <>
-            <Button variant="danger" onClick={() => requireEdit(() => setConfirming(true))}>
+            <Button variant="danger" onClick={() => setConfirming(true)}>
               <Trash2 size={15} /> Delete
             </Button>
-            <Button variant="primary" onClick={() => requireEdit(() => setDialog({ kind: "expense", expense }))}>
+            <Button variant="primary" onClick={() => setDialog({ kind: "expense", expense })}>
               <Pencil size={15} /> Edit
             </Button>
           </>
@@ -213,56 +211,6 @@ function ExpenseDetail({ expense, onClose }: { expense: Expense; onClose: () => 
       <div className="mt-3">
         <ErrorText>{error}</ErrorText>
       </div>
-    </Modal>
-  );
-}
-
-function UnlockDialog({ onClose }: { onClose: () => void }) {
-  const { reload } = useGroup();
-  const [passcode, setPasscode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/unlock", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ passcode }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "That passcode isn't right.");
-      await reload();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not unlock.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Unlock editing"
-      footer={
-        <Button type="submit" form="unlock-form" variant="primary" disabled={busy || !passcode}>
-          {busy ? "Checking…" : "Unlock"}
-        </Button>
-      }
-    >
-      <form id="unlock-form" onSubmit={submit} className="space-y-4">
-        <div className="flex items-center gap-3 text-sm text-muted">
-          <Lock size={18} className="shrink-0" />
-          Anyone with the link can view. Enter the group passcode to add or change things on this device.
-        </div>
-        <Input type="password" autoFocus value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder="Group passcode" autoComplete="current-password" />
-        <ErrorText>{error}</ErrorText>
-      </form>
     </Modal>
   );
 }

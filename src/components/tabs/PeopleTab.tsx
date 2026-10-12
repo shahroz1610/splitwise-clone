@@ -6,28 +6,26 @@ import { useGroup } from "../store";
 import { Avatar, Button, Card, cx, Empty, ErrorText, Input } from "../ui";
 
 export function PeopleTab() {
-  const { state, stats, fmt, api, requireEdit, meId } = useGroup();
+  const { state, stats, fmt, api, meId } = useGroup();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const active = state!.members.filter((m) => !m.archived);
   const archived = state!.members.filter((m) => m.archived);
 
-  function add(e: React.FormEvent) {
+  async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    requireEdit(async () => {
-      setBusy(true);
-      setError(null);
-      try {
-        await api("POST", "/api/members", { name: name.trim() });
-        setName("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not add.");
-      } finally {
-        setBusy(false);
-      }
-    });
+    setBusy(true);
+    setError(null);
+    try {
+      await api("POST", "/api/members", { name: name.trim() });
+      setName("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -69,7 +67,7 @@ export function PeopleTab() {
               <div key={m.id} className="flex items-center gap-3 px-4 py-2.5">
                 <Avatar member={m} size={26} />
                 <span className="flex-1 text-sm text-muted">{m.name}</span>
-                <Button size="sm" variant="ghost" onClick={() => requireEdit(() => api("PATCH", `/api/members/${m.id}`, { archived: false }).catch(() => {}))}>
+                <Button size="sm" variant="ghost" onClick={() => api("PATCH", `/api/members/${m.id}`, { archived: false }).catch(() => {})}>
                   <RotateCcw size={14} /> Restore
                 </Button>
               </div>
@@ -82,7 +80,7 @@ export function PeopleTab() {
 }
 
 function PersonCard({ id, isMe, net, paid, share, fmt }: { id: string; isMe: boolean; net: number; paid: number; share: number; fmt: (c: number) => string }) {
-  const { member, api, requireEdit, state } = useGroup();
+  const { member, api, state } = useGroup();
   const m = member(id)!;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(m.name);
@@ -134,13 +132,14 @@ function PersonCard({ id, isMe, net, paid, share, fmt }: { id: string; isMe: boo
               <p className={cx("text-sm tabular", net > 0 ? "text-owed" : net < 0 ? "text-owe" : "text-muted")}>
                 {net === 0 ? "Settled up" : net > 0 ? `Gets back ${fmt(net)}` : `Owes ${fmt(-net)}`}
               </p>
+              <p className="truncate text-[11px] text-muted">{m.linked ? m.email : "Hasn't signed in yet"}</p>
             </div>
-            <button onClick={() => requireEdit(() => setEditing(true))} className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-fg" aria-label={`Rename ${m.name}`}>
+            <button onClick={() => setEditing(true)} className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-fg" aria-label={`Rename ${m.name}`}>
               <Pencil size={15} />
             </button>
-            {referenced ? (
+            {isMe ? null : referenced ? (
               <button
-                onClick={() => requireEdit(() => run(() => api("PATCH", `/api/members/${id}`, { archived: true })))}
+                onClick={() => run(() => api("PATCH", `/api/members/${id}`, { archived: true }))}
                 disabled={net !== 0}
                 title={net !== 0 ? "Settle up before removing" : "Remove from group (keeps history)"}
                 className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-fg disabled:opacity-30"
@@ -150,7 +149,7 @@ function PersonCard({ id, isMe, net, paid, share, fmt }: { id: string; isMe: boo
               </button>
             ) : (
               <button
-                onClick={() => requireEdit(() => run(() => api("DELETE", `/api/members/${id}`)))}
+                onClick={() => run(() => api("DELETE", `/api/members/${id}`))}
                 className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-danger"
                 aria-label={`Delete ${m.name}`}
               >

@@ -1,13 +1,13 @@
 "use client";
 
-import { Lock, Unlock } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { CURRENCIES } from "@/lib/money";
 import { useGroup } from "../store";
-import { Button, Card, ErrorText, Field, Input, Select, Toggle } from "../ui";
+import { Avatar, Button, Card, ErrorText, Field, Input, Select, Toggle } from "../ui";
 
 export function SettingsTab() {
-  const { state, api, requireEdit, setDialog, reload } = useGroup();
+  const { state, api, me, signOut } = useGroup();
   const s = state!.settings;
   const [name, setName] = useState(s.group_name);
   const [currency, setCurrency] = useState(s.currency);
@@ -17,24 +17,22 @@ export function SettingsTab() {
 
   const dirty = name.trim() !== s.group_name || currency !== s.currency;
 
-  function save(e: React.FormEvent) {
+  async function save(e: React.FormEvent) {
     e.preventDefault();
-    requireEdit(async () => {
-      setBusy(true);
-      setError(null);
-      setSaved(false);
-      try {
-        const patch: Record<string, unknown> = {};
-        if (name.trim() !== s.group_name) patch.group_name = name.trim();
-        if (currency !== s.currency) patch.currency = currency;
-        await api("PATCH", "/api/settings", patch);
-        setSaved(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not save.");
-      } finally {
-        setBusy(false);
-      }
-    });
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const patch: Record<string, unknown> = {};
+      if (name.trim() !== s.group_name) patch.group_name = name.trim();
+      if (currency !== s.currency) patch.currency = currency;
+      await api("PATCH", "/api/settings", patch);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -68,35 +66,25 @@ export function SettingsTab() {
           <p className="text-sm font-medium">Simplify debts</p>
           <p className="text-xs text-muted">Minimise the number of payments needed to settle the group.</p>
         </div>
-        <Toggle checked={s.simplify_debts} label="Simplify debts" onChange={(v) => requireEdit(() => api("PATCH", "/api/settings", { simplify_debts: v }).catch(() => {}))} />
+        <Toggle checked={s.simplify_debts} label="Simplify debts" onChange={(v) => api("PATCH", "/api/settings", { simplify_debts: v }).catch(() => {})} />
       </Card>
 
       <Card className="flex items-center gap-4 p-5">
-        <div className="flex-1">
-          <p className="text-sm font-medium">Editing access</p>
+        {state!.viewer.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={state!.viewer.avatar_url} alt="" className="h-10 w-10 rounded-full" referrerPolicy="no-referrer" />
+        ) : (
+          <Avatar member={me} size={40} />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{state!.viewer.email}</p>
           <p className="text-xs text-muted">
-            {!state!.passcodeRequired
-              ? "No passcode is configured, so anyone with the link can make changes. Set GROUP_PASSCODE to require one."
-              : state!.canEdit
-                ? "This device is unlocked and can make changes."
-                : "This device is view-only until the group passcode is entered."}
+            Signed in with Google as <b className="font-medium text-fg">{me?.name}</b>. New people need the group passcode the first time they sign in.
           </p>
         </div>
-        {state!.passcodeRequired &&
-          (state!.canEdit ? (
-            <Button
-              onClick={async () => {
-                await fetch("/api/unlock", { method: "DELETE" });
-                await reload();
-              }}
-            >
-              <Lock size={15} /> Lock
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={() => setDialog({ kind: "unlock" })}>
-              <Unlock size={15} /> Unlock
-            </Button>
-          ))}
+        <Button onClick={signOut}>
+          <LogOut size={15} /> Sign out
+        </Button>
       </Card>
     </div>
   );
