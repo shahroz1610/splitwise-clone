@@ -79,7 +79,7 @@ export function SettingsTab() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{state!.viewer.email}</p>
           <p className="text-xs text-muted">
-            Signed in with Google as <b className="font-medium text-fg">{me?.name}</b>. New people need the group passcode the first time they sign in.
+            Signed in as <b className="font-medium text-fg">{me?.name}</b>. New people need the group passcode the first time they sign in.
           </p>
         </div>
         <Button onClick={signOut}>

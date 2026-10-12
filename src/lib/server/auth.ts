@@ -12,7 +12,7 @@ export function authEnv() {
   return { url, anonKey };
 }
 
-/** Supabase Auth client bound to this request's cookies (holds the Google session). */
+/** Supabase Auth client bound to this request's cookies (Google or email session). */
 export async function authClient() {
   const { url, anonKey } = authEnv();
   const store = await cookies();
@@ -39,13 +39,13 @@ export interface AuthUser {
 
 export interface Viewer {
   user: AuthUser;
-  /** The group member this Google account is linked to; null until they join with the passcode. */
+  /** The group member this account is linked to; null until they join with the passcode. */
   member: Member | null;
   /** True when their member was archived: they've been removed and can't rejoin until restored. */
   removed: boolean;
 }
 
-/** The signed-in Google user and their linked member, or null when signed out. */
+/** The signed-in user and their linked member, or null when signed out. */
 export async function getViewer(): Promise<Viewer | null> {
   const supabase = await authClient();
   const { data, error } = await supabase.auth.getUser();

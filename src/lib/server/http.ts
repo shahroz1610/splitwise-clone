@@ -15,10 +15,10 @@ export function json(data: unknown, status = 200) {
   return Response.json(data, { status });
 }
 
-/** Signed-in Google user who has joined the group, or an HttpError explaining what's missing. */
+/** Signed-in user who has joined the group, or an HttpError explaining what's missing. */
 export async function requireMember(): Promise<Viewer & { member: NonNullable<Viewer["member"]> }> {
   const viewer = await getViewer();
-  if (!viewer) throw new HttpError(401, "Sign in with Google to continue.");
+  if (!viewer) throw new HttpError(401, "Sign in to continue.");
   if (!viewer.member) throw new HttpError(403, "Join the group with the passcode first.");
   return viewer as Viewer & { member: NonNullable<Viewer["member"]> };
 }

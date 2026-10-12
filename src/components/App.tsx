@@ -11,6 +11,7 @@ import { InsightsTab } from "./tabs/InsightsTab";
 import { PeopleTab } from "./tabs/PeopleTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { AuthScreen } from "./AuthScreen";
+import { InstallPrompt } from "./Pwa";
 import { Avatar, Button, Card, cx } from "./ui";
 
 const TABS = [
@@ -75,45 +76,70 @@ function Shell() {
   const settleUp = () => setDialog({ kind: "settle", prefill: {} });
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-28 sm:px-6 sm:pb-12">
+    <div className="mx-auto min-h-dvh max-w-5xl">
       <Header onAdd={addExpense} onSettle={settleUp} />
-      <Summary />
+      <main className="px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-12">
+        <InstallPrompt className="mb-4 md:hidden" />
+        <Summary />
 
-      <nav className="-mx-4 mb-5 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1">
-          {TABS.map((t) => (
+        <nav className="mb-5 hidden overflow-x-auto border-b border-border md:block" aria-label="Sections">
+          <div className="flex gap-1">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={cx(
+                  "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
+                  tab === t.id ? "border-fg text-fg" : "border-transparent text-muted hover:text-fg",
+                )}
+              >
+                <t.icon size={15} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {tab === "expenses" && <ExpensesTab onAdd={addExpense} />}
+        {tab === "balances" && <BalancesTab />}
+        {tab === "people" && <PeopleTab />}
+        {tab === "activity" && <ActivityTab />}
+        {tab === "insights" && <InsightsTab />}
+        {tab === "settings" && <SettingsTab />}
+      </main>
+
+      <BottomNav tab={tab} setTab={setTab} />
+    </div>
+  );
+}
+
+function BottomNav({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      aria-label="Primary"
+    >
+      <div className="flex">
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
             <button
               key={t.id}
+              type="button"
               onClick={() => setTab(t.id)}
+              aria-current={active ? "page" : undefined}
               className={cx(
-                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
-                tab === t.id ? "border-fg text-fg" : "border-transparent text-muted hover:text-fg",
+                "flex min-h-14 min-w-0 flex-1 touch-manipulation flex-col items-center justify-center gap-1 px-0.5 text-[10px] leading-none font-medium",
+                active ? "text-fg" : "text-muted",
               )}
             >
-              <t.icon size={15} />
-              {t.label}
+              <t.icon size={20} strokeWidth={active ? 2.35 : 1.75} />
+              <span className="max-w-full truncate">{t.label}</span>
             </button>
-          ))}
-        </div>
-      </nav>
-
-      {tab === "expenses" && <ExpensesTab onAdd={addExpense} />}
-      {tab === "balances" && <BalancesTab />}
-      {tab === "people" && <PeopleTab />}
-      {tab === "activity" && <ActivityTab />}
-      {tab === "insights" && <InsightsTab />}
-      {tab === "settings" && <SettingsTab />}
-
-      {/* Mobile quick actions */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-border bg-surface/90 p-3 backdrop-blur sm:hidden">
-        <Button className="flex-1" onClick={settleUp}>
-          Settle up
-        </Button>
-        <Button className="flex-1" variant="primary" onClick={addExpense}>
-          <Plus size={16} /> Add expense
-        </Button>
+          );
+        })}
       </div>
-    </div>
+    </nav>
   );
 }
 
@@ -122,36 +148,46 @@ function Header({ onAdd, onSettle }: { onAdd: () => void; onSettle: () => void }
   const s = state!;
 
   return (
-    <header className="flex flex-wrap items-center gap-3 py-5 sm:py-7">
-      <div className="mr-auto min-w-0">
-        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{s.settings.group_name}</h1>
-        <div className="mt-1.5 flex items-center gap-2">
-          <div className="flex -space-x-1.5">
-            {activeMembers.slice(0, 6).map((m) => (
-              <span key={m.id} className="rounded-full ring-2 ring-bg">
-                <Avatar member={m} size={22} />
-              </span>
-            ))}
+    <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur md:static md:border-b-0 md:bg-transparent">
+      <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 md:px-6 md:pt-7 md:pb-7">
+        <div className="mr-auto min-w-0">
+          <h1 className="truncate text-lg font-semibold tracking-tight md:text-2xl">{s.settings.group_name}</h1>
+          <div className="mt-1.5 flex items-center gap-2">
+            <div className="flex -space-x-1.5">
+              {activeMembers.slice(0, 6).map((m) => (
+                <span key={m.id} className="rounded-full ring-2 ring-bg">
+                  <Avatar member={m} size={22} />
+                </span>
+              ))}
+            </div>
+            <span className="text-xs text-muted">
+              {activeMembers.length} {activeMembers.length === 1 ? "person" : "people"}
+            </span>
           </div>
-          <span className="text-xs text-muted">
-            {activeMembers.length} {activeMembers.length === 1 ? "person" : "people"}
-          </span>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-1 pl-1">
-          <Avatar member={me} size={28} />
-          <span className="hidden max-w-32 truncate text-[13px] font-medium md:inline">{me?.name}</span>
-          <button onClick={signOut} className="rounded-full p-1.5 text-muted hover:bg-subtle hover:text-fg" title={`Sign out ${s.viewer.email}`} aria-label="Sign out">
-            <LogOut size={15} />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full bg-accent text-accent-fg md:hidden"
+            aria-label="Add expense"
+          >
+            <Plus size={20} />
           </button>
-        </div>
-        <div className="hidden gap-2 sm:flex">
-          <Button onClick={onSettle}>Settle up</Button>
-          <Button variant="primary" onClick={onAdd}>
-            <Plus size={16} /> Add expense
-          </Button>
+          <div className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-1 pl-1">
+            <Avatar member={me} size={28} />
+            <span className="hidden max-w-32 truncate text-[13px] font-medium md:inline">{me?.name}</span>
+            <button onClick={signOut} className="flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-subtle hover:text-fg md:h-8 md:w-8" title={`Sign out ${s.viewer.email}`} aria-label="Sign out">
+              <LogOut size={16} />
+            </button>
+          </div>
+          <div className="hidden gap-2 md:flex">
+            <Button onClick={onSettle}>Settle up</Button>
+            <Button variant="primary" onClick={onAdd}>
+              <Plus size={16} /> Add expense
+            </Button>
+          </div>
         </div>
       </div>
     </header>

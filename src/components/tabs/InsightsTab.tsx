@@ -85,7 +85,7 @@ export function InsightsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col items-start gap-2 md:flex-row md:flex-wrap">
         <Segmented options={RANGES.map((r) => ({ id: r.id, label: r.label }))} value={range} onChange={(v) => setRange(v as typeof range)} />
         {meId && (
           <Segmented
@@ -100,7 +100,7 @@ export function InsightsTab() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="p-4">
+        <Card className="min-w-0 p-4">
           <h3 className="text-sm font-medium">Spending by category</h3>
           <p className="text-xs text-muted">{fmt(total)} total</p>
           {total === 0 ? (
@@ -133,7 +133,7 @@ export function InsightsTab() {
           )}
         </Card>
 
-        <Card className="p-4">
+        <Card className="min-w-0 overflow-hidden p-4">
           <h3 className="text-sm font-medium">Monthly spending</h3>
           <p className="text-xs text-muted">{mine ? "Your share per month" : "Group total per month"}</p>
           <div className="mt-3 h-56">
@@ -150,7 +150,7 @@ export function InsightsTab() {
         </Card>
       </div>
 
-      <Card className="p-4">
+      <Card className="min-w-0 overflow-hidden p-4">
         <h3 className="text-sm font-medium">Paid vs. share, per person</h3>
         <p className="text-xs text-muted">People who paid more than their share are owed the difference.</p>
         <div className="mt-3" style={{ height: Math.max(160, byPerson.length * 52) }}>
@@ -177,12 +177,12 @@ function compact(v: number) {
 
 function Segmented({ options, value, onChange }: { options: { id: string; label: string }[]; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="inline-flex rounded-lg bg-subtle p-1 text-[13px]">
+    <div className="inline-flex shrink-0 rounded-lg bg-subtle p-1 text-[13px]">
       {options.map((o) => (
         <button
           key={o.id}
           onClick={() => onChange(o.id)}
-          className={cx("rounded-md px-2.5 py-1 font-medium transition-colors", value === o.id ? "bg-surface shadow-sm" : "text-muted hover:text-fg")}
+          className={cx("min-h-9 rounded-md px-3 py-1.5 font-medium whitespace-nowrap transition-colors", value === o.id ? "bg-surface shadow-sm" : "text-muted hover:text-fg")}
         >
           {o.label}
         </button>

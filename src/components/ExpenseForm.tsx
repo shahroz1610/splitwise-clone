@@ -132,7 +132,7 @@ export function ExpenseForm({ expense, onClose }: { expense: Expense | null; onC
       }
     >
       <form id="expense-form" onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-[1fr_9rem] gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_9rem]">
           <Field label="Description">
             <Input autoFocus value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Dinner, groceries, rent…" maxLength={120} />
           </Field>
@@ -223,7 +223,7 @@ export function ExpenseForm({ expense, onClose }: { expense: Expense | null; onC
                     <>
                       <Avatar member={p} size={26} />
                       <span className={cx("flex-1 text-sm", !isIn && "text-muted")}>{p.name}</span>
-                      <div className="relative w-28">
+                      <div className="relative w-24 shrink-0">
                         <input
                           inputMode="decimal"
                           value={values[p.id] ?? ""}
@@ -238,7 +238,7 @@ export function ExpenseForm({ expense, onClose }: { expense: Expense | null; onC
                       </div>
                     </>
                   )}
-                  <span className={cx("w-20 text-right text-sm tabular", isIn ? "" : "text-muted")}>
+                  <span className={cx("w-16 shrink-0 text-right text-xs tabular sm:w-20 sm:text-sm", isIn ? "" : "text-muted")}>
                     {share !== undefined && isIn ? fmt(share) : "—"}
                   </span>
                 </li>

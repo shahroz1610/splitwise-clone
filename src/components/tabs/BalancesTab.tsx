@@ -27,7 +27,7 @@ export function BalancesTab() {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
       <div className="space-y-5">
-        <Card className="flex items-start gap-3 p-4">
+        <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
           <span className="rounded-lg bg-subtle p-2 text-fg">
             <Sparkles size={18} />
           </span>
@@ -55,18 +55,22 @@ export function BalancesTab() {
                 const mine = d.from === meId || d.to === meId;
                 return (
                   <div key={`${d.from}-${d.to}`} className={cx("flex items-center gap-3 px-4 py-3", meId && !mine && "opacity-60")}>
-                    <Avatar member={member(d.from)} size={30} />
+                    <Avatar member={member(d.from)} size={36} />
                     <div className="min-w-0 flex-1 text-sm">
-                      <span className="font-medium">{d.from === meId ? "You" : member(d.from)?.name}</span>
-                      <span className="text-muted"> {d.from === meId ? "owe" : "owes"} </span>
-                      <span className="font-medium">{d.to === meId ? "you" : member(d.to)?.name}</span>
+                      <p className="truncate">
+                        <span className="font-medium">{d.from === meId ? "You" : member(d.from)?.name}</span>
+                        <span className="text-muted"> {d.from === meId ? "owe" : "owes"} </span>
+                        <span className="font-medium">{d.to === meId ? "you" : member(d.to)?.name}</span>
+                      </p>
                       <p className="text-base font-semibold text-owe tabular">{fmt(d.amount)}</p>
                     </div>
-                    <ArrowRight size={16} className="hidden text-muted sm:block" />
-                    <Avatar member={member(d.to)} size={30} />
+                    <ArrowRight size={16} className="hidden shrink-0 text-muted sm:block" />
+                    <span className="hidden sm:inline-flex">
+                      <Avatar member={member(d.to)} size={36} />
+                    </span>
                     <Button
                       size="sm"
-                      className="ml-1"
+                      className="shrink-0"
                       onClick={() => setDialog({ kind: "settle", prefill: { from: d.from, to: d.to, amount: d.amount } })}
                     >
                       Settle
@@ -87,14 +91,16 @@ export function BalancesTab() {
             return (
               <div key={m.id} className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
-                  <Avatar member={m} size={26} />
-                  <span className="flex-1 truncate text-sm">
-                    {m.name}
-                    {m.id === meId && <span className="text-muted"> (you)</span>}
-                  </span>
-                  <span className={cx("text-sm font-medium tabular", net > 0 ? "text-owed" : net < 0 ? "text-owe" : "text-muted")}>
-                    {net === 0 ? "settled" : `${net > 0 ? "gets back" : "owes"} ${fmt(Math.abs(net))}`}
-                  </span>
+                  <Avatar member={m} size={32} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">
+                      {m.name}
+                      {m.id === meId && <span className="text-muted"> (you)</span>}
+                    </p>
+                    <p className={cx("text-sm font-medium tabular", net > 0 ? "text-owed" : net < 0 ? "text-owe" : "text-muted")}>
+                      {net === 0 ? "Settled up" : `${net > 0 ? "Gets back" : "Owes"} ${fmt(Math.abs(net))}`}
+                    </p>
+                  </div>
                 </div>
                 <div className="relative mt-2 h-1.5 rounded-full bg-subtle">
                   <div className="absolute top-0 left-1/2 h-full w-px bg-border" />

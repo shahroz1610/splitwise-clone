@@ -20,8 +20,8 @@ export function Button({
     <button
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg",
-        size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3.5 text-sm",
+        "inline-flex touch-manipulation items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg",
+        size === "sm" ? "h-10 px-3 text-[13px] md:h-8 md:px-2.5" : "h-11 px-3.5 text-base md:h-10 md:text-sm",
         variant === "primary" && "bg-accent text-accent-fg hover:opacity-90",
         variant === "secondary" && "border border-border bg-surface hover:bg-subtle",
         variant === "ghost" && "text-muted hover:bg-subtle hover:text-fg",
@@ -33,7 +33,7 @@ export function Button({
 }
 
 export const inputClass =
-  "h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm outline-none transition-colors placeholder:text-muted focus:border-fg/40 focus:ring-2 focus:ring-fg/10";
+  "h-11 w-full rounded-lg border border-border bg-surface px-3 text-base outline-none transition-colors placeholder:text-muted focus:border-fg/40 focus:ring-2 focus:ring-fg/10 md:h-10 md:text-sm";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputClass, className)} />;
@@ -137,14 +137,19 @@ export function Modal({
           wide ? "sm:max-w-xl" : "sm:max-w-md",
         )}
       >
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" aria-hidden />
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-          <button onClick={onClose} className="-mr-1.5 rounded-md p-1.5 text-muted hover:bg-subtle hover:text-fg" aria-label="Close">
+          <h2 className="text-base font-semibold">{title}</h2>
+          <button onClick={onClose} className="-mr-2 flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-subtle hover:text-fg" aria-label="Close">
             <X size={18} />
           </button>
         </div>
         <div className="overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
+        {footer && (
+          <div className="flex flex-col gap-2 border-t border-border px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:pb-3 [&>button]:w-full sm:[&>button]:w-auto">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

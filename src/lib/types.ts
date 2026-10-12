@@ -14,7 +14,7 @@ export interface Member {
   created_at: string;
   email: string | null;
   avatar_url: string | null;
-  /** Whether a Google account has claimed this member. */
+  /** Whether an account has claimed this member. */
   linked: boolean;
 }
 
@@ -63,7 +63,7 @@ export interface GroupState {
   expenses: Expense[];
   payments: Payment[];
   activity: Activity[];
-  /** The signed-in Google user, always linked to a member by the time state is returned. */
+  /** The signed-in user, always linked to a member by the time state is returned. */
   viewer: { member_id: string; email: string; name: string; avatar_url: string | null };
 }
 

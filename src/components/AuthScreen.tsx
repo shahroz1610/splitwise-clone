@@ -4,38 +4,249 @@ import { Check, KeyRound, LogOut, UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { AuthGate } from "@/lib/types";
 import { useGroup } from "./store";
+import { InstallPrompt } from "./Pwa";
 import { Avatar, Button, Card, cx, ErrorText, Field, Input } from "./ui";
 
 export function AuthScreen({ gate }: { gate: AuthGate }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center px-4 py-10">
+    <div className="flex min-h-dvh items-center justify-center px-4 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-lg font-semibold text-accent-fg">S</div>
-          <h1 className="text-xl font-semibold tracking-tight">Split</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Splitwisely</h1>
           <p className="text-sm text-muted">Shared expenses for the group</p>
         </div>
         {gate.code === "signed_out" ? <SignIn /> : <Join gate={gate} />}
+        <InstallPrompt className="mt-4" />
       </div>
     </div>
   );
 }
 
+type AuthMode = "signin" | "signup" | "confirm" | "forgot" | "reset";
+
+class AuthFlowError extends Error {
+  constructor(
+    message: string,
+    public code?: string,
+  ) {
+    super(message);
+  }
+}
+
 function SignIn() {
+  const { reload } = useGroup();
   // Shown once after a failed OAuth round-trip; read straight from the URL.
-  const error = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("auth_error");
+  const urlError = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("auth_error");
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(urlError);
+  const [info, setInfo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function go(next: AuthMode) {
+    setMode(next);
+    setError(null);
+    setInfo(null);
+    setPassword("");
+    setConfirm("");
+    setCode("");
+  }
+
+  async function post(path: string, body: Record<string, unknown>) {
+    const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; status?: string };
+    if (!res.ok) throw new AuthFlowError(data.error ?? "Something went wrong.", data.code);
+    return data;
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if ((mode === "signup" || mode === "reset") && password !== confirm) {
+      setError("Those passwords don't match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "signin") {
+        await post("/auth/email/login", { email, password });
+        await reload();
+      } else if (mode === "signup") {
+        const data = await post("/auth/email/signup", { email, password });
+        if (data.status === "signed_in") await reload();
+        else {
+          setInfo(`We sent a 6-digit code to ${email}.`);
+          setMode("confirm");
+          setPassword("");
+          setConfirm("");
+        }
+      } else if (mode === "confirm") {
+        await post("/auth/email/verify", { email, code });
+        await reload();
+      } else if (mode === "forgot") {
+        await post("/auth/email/reset", { email });
+        setInfo("If an account exists for that email, we sent a 6-digit code. It expires in one hour.");
+        setMode("reset");
+      } else {
+        await post("/auth/email/reset/confirm", { email, code, password });
+        await reload();
+      }
+    } catch (err) {
+      if (err instanceof AuthFlowError && err.code === "email_not_confirmed") {
+        setInfo("Enter the 6-digit code from your email to finish signing in.");
+        setMode("confirm");
+        setPassword("");
+        setConfirm("");
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    setBusy(true);
+    setError(null);
+    try {
+      await post("/auth/email/resend", { email, purpose: mode === "reset" ? "recovery" : "signup" });
+      setInfo("We sent a new code. It expires in one hour.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send a new code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const submitLabel =
+    mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : mode === "confirm" ? "Verify code" : mode === "forgot" ? "Send code" : "Update password";
+  const disabled =
+    busy ||
+    (mode === "signin" && (!email || !password)) ||
+    (mode === "signup" && (!email || password.length < 8 || password !== confirm)) ||
+    (mode === "confirm" && code.length !== 6) ||
+    (mode === "forgot" && !email) ||
+    (mode === "reset" && (code.length !== 6 || password.length < 8 || password !== confirm));
+
   return (
     <Card className="space-y-4 p-6">
-      <a
-        href="/auth/login"
-        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-border bg-surface text-sm font-medium hover:bg-subtle"
-      >
-        <GoogleIcon />
-        Continue with Google
-      </a>
-      <p className="text-center text-xs text-muted">First time here? You&apos;ll need the group passcode once after signing in.</p>
-      <ErrorText>{error}</ErrorText>
+      {(mode === "signin" || mode === "signup") && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-subtle p-1 text-sm">
+          <ModeButton active={mode === "signin"} onClick={() => go("signin")}>
+            Sign in
+          </ModeButton>
+          <ModeButton active={mode === "signup"} onClick={() => go("signup")}>
+            Create account
+          </ModeButton>
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="space-y-4">
+        {mode === "confirm" && (
+          <p className="text-sm text-muted">
+            Enter the 6-digit code sent to <span className="font-medium text-fg">{email}</span>.
+          </p>
+        )}
+        {mode === "forgot" && <p className="text-sm text-muted">We&apos;ll email a 6-digit code you can use to choose a new password.</p>}
+        {mode === "reset" && (
+          <p className="text-sm text-muted">
+            Enter the code sent to <span className="font-medium text-fg">{email}</span>, then choose a new password.
+          </p>
+        )}
+
+        {(mode === "signin" || mode === "signup" || mode === "forgot") && (
+          <Field label="Email">
+            <Input type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </Field>
+        )}
+        {(mode === "signin" || mode === "signup") && (
+          <Field label="Password" hint={mode === "signup" ? "At least 8 characters." : undefined}>
+            <Input type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </Field>
+        )}
+        {mode === "signup" && (
+          <Field label="Confirm password">
+            <Input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          </Field>
+        )}
+        {(mode === "confirm" || mode === "reset") && (
+          <Field label="Confirmation code">
+            <Input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="text-center tracking-[0.4em]"
+              placeholder="000000"
+              required
+            />
+          </Field>
+        )}
+        {mode === "reset" && (
+          <>
+            <Field label="New password" hint="At least 8 characters.">
+              <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </Field>
+            <Field label="Confirm new password">
+              <Input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+            </Field>
+          </>
+        )}
+
+        {info && <p className="text-sm text-muted">{info}</p>}
+        <ErrorText>
+          {(mode === "signup" || mode === "reset") && confirm.length > 0 && password !== confirm ? "Those passwords don't match." : error}
+        </ErrorText>
+        <Button type="submit" variant="primary" className="w-full" disabled={disabled}>
+          {busy ? "Please wait…" : submitLabel}
+        </Button>
+      </form>
+
+      {mode === "signin" && (
+        <button type="button" onClick={() => go("forgot")} className="w-full text-center text-sm text-muted hover:text-fg">
+          Forgot password?
+        </button>
+      )}
+      {(mode === "confirm" || mode === "reset") && (
+        <button type="button" onClick={resend} disabled={busy} className="w-full text-center text-sm text-muted hover:text-fg disabled:opacity-50">
+          Resend code
+        </button>
+      )}
+      {mode !== "signin" && mode !== "signup" && (
+        <button type="button" onClick={() => go("signin")} className="w-full text-center text-sm text-muted hover:text-fg">
+          Back to sign in
+        </button>
+      )}
+
+      {(mode === "signin" || mode === "signup") && (
+        <>
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <a href="/auth/login" className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-border bg-surface text-sm font-medium hover:bg-subtle">
+            <GoogleIcon />
+            Continue with Google
+          </a>
+          <p className="text-center text-xs text-muted">First time here? You&apos;ll need the group passcode once after signing in.</p>
+        </>
+      )}
     </Card>
+  );
+}
+
+function ModeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={cx("rounded-md px-3 py-1.5 font-medium", active ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg")}>
+      {children}
+    </button>
   );
 }
 
@@ -122,7 +333,7 @@ function Join({ gate }: { gate: Extract<AuthGate, { code: "not_joined" }> }) {
         <form onSubmit={checkPasscode} className="space-y-4 pt-4">
           <div className="flex gap-3 text-sm text-muted">
             <KeyRound size={18} className="mt-0.5 shrink-0" />
-            <span>Enter the group passcode to join. You only need to do this once — next time, just sign in with Google.</span>
+            <span>Enter the group passcode to join. You only need to do this once — next time, just sign in.</span>
           </div>
           <Input type="password" autoFocus value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder="Group passcode" autoComplete="off" />
           <ErrorText>{error}</ErrorText>

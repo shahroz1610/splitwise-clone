@@ -4,7 +4,7 @@ import { verifyJoin } from "@/lib/server/join";
 import { db } from "@/lib/server/supabase";
 
 /**
- * Step 2 of joining: link this Google account to an existing unclaimed member
+ * Step 2 of joining: link this account to an existing unclaimed member
  * (`member_id`) or create a new member (`name`). Only ever needed once per account.
  */
 export async function POST(req: Request) {

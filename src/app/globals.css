@@ -54,10 +54,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .tabular {

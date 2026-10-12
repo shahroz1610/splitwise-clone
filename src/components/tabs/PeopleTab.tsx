@@ -33,7 +33,7 @@ export function PeopleTab() {
       <Card className="p-4">
         <form onSubmit={add} className="flex gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Add a person by name" maxLength={60} />
-          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
+          <Button type="submit" variant="primary" className="shrink-0" disabled={busy || !name.trim()}>
             <UserPlus size={16} /> Add
           </Button>
         </form>
