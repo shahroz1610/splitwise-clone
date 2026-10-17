@@ -3,6 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Member } from "../types";
+import { check } from "./check";
+import { timed } from "./http-timing";
 import { db } from "./supabase";
 
 export function authEnv() {
@@ -43,22 +45,47 @@ export interface Viewer {
   member: Member | null;
   /** True when their member was archived: they've been removed and can't rejoin until restored. */
   removed: boolean;
+  /** Present when requested: all members and the currency, fetched in the same round trip as the viewer's own member. */
+  group?: GroupContext;
+}
+
+export interface GroupContext {
+  members: Map<string, Member>;
+  currency: string;
 }
 
 /** The signed-in user and their linked member, or null when signed out. */
-export async function getViewer(): Promise<Viewer | null> {
+export async function getViewer({ withGroup = false } = {}): Promise<Viewer | null> {
   const supabase = await authClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  const u = data.user;
-  const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+  // getClaims verifies the JWT signature locally (cached JWKS) instead of calling the Auth server.
+  const { data, error } = await timed("auth getClaims", supabase.auth.getClaims());
+  const c = data?.claims;
+  if (error || !c?.sub) return null;
+  const meta = (c.user_metadata ?? {}) as Record<string, unknown>;
+  const email = typeof c.email === "string" ? c.email : "";
   const user: AuthUser = {
-    id: u.id,
-    email: u.email ?? "",
-    name: String(meta.full_name ?? meta.name ?? u.email?.split("@")[0] ?? "Me"),
+    id: c.sub,
+    email,
+    name: String(meta.full_name ?? meta.name ?? email.split("@")[0] ?? "Me"),
     avatar_url: (meta.avatar_url ?? meta.picture ?? null) as string | null,
   };
-  const { data: member } = await db().from("members").select("*").eq("auth_user_id", u.id).maybeSingle();
+  if (withGroup) {
+    // One wave: every member (the viewer is among them) plus the currency, so mutations need no further lookups.
+    const [membersRes, settingsRes] = await timed(
+      "viewer members+currency",
+      Promise.all([db().from("members").select("*"), db().from("settings").select("currency").eq("id", 1).maybeSingle()]),
+    );
+    const rows = check(membersRes) as (Member & { auth_user_id: string | null })[];
+    const member = rows.find((m) => m.auth_user_id === user.id) ?? null;
+    const currency = (check(settingsRes) as { currency: string } | null)?.currency ?? "USD";
+    return {
+      user,
+      member: member && !member.archived ? member : null,
+      removed: Boolean(member?.archived),
+      group: { members: new Map(rows.map((m) => [m.id, m])), currency },
+    };
+  }
+  const { data: member } = await timed("viewer member lookup", db().from("members").select("*").eq("auth_user_id", user.id).maybeSingle());
   // Archived members have been removed from the group and lose access.
   return { user, member: member && !member.archived ? (member as Member) : null, removed: Boolean(member?.archived) };
 }

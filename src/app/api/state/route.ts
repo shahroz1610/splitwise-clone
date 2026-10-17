@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { getViewer } from "@/lib/server/auth";
+import { timed } from "@/lib/server/http-timing";
 import { json } from "@/lib/server/http";
 import { loadGroup } from "@/lib/server/state";
 import type { AuthGate, GroupState } from "@/lib/types";
@@ -9,13 +10,13 @@ export async function GET() {
   // Must stay outside the try so the prerender bail-out isn't swallowed.
   await connection();
   try {
-    const viewer = await getViewer();
+    const viewer = await timed("state viewer", getViewer());
     if (!viewer) return json({ code: "signed_out" } satisfies AuthGate, 401);
     if (!viewer.member) {
       const { email, name, avatar_url } = viewer.user;
       return json({ code: "not_joined", email, name, avatar_url, removed: viewer.removed } satisfies AuthGate, 403);
     }
-    const group = await loadGroup();
+    const group = await timed("state loadGroup", loadGroup());
     const state: GroupState = {
       ...group,
       viewer: { member_id: viewer.member.id, email: viewer.user.email, name: viewer.user.name, avatar_url: viewer.user.avatar_url },

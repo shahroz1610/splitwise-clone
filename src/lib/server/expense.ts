@@ -3,7 +3,9 @@ import { CATEGORY_IDS } from "../categories";
 import { formatMoney } from "../money";
 import { computeSplits } from "../splits";
 import type { SplitType } from "../types";
+import type { MemberViewer } from "./http";
 import { cents, check, date, HttpError, logActivity, str } from "./http";
+import { timed } from "./http-timing";
 import { db } from "./supabase";
 
 const SPLIT_TYPES: SplitType[] = ["equal", "exact", "percent", "shares"];
@@ -19,7 +21,7 @@ async function currency() {
 }
 
 /** Validate an expense payload, compute shares, save it atomically and log the activity. */
-export async function saveExpense(id: string | null, body: Record<string, unknown>) {
+export async function saveExpense(id: string | null, body: Record<string, unknown>, { group }: MemberViewer) {
   const description = str(body.description, "Description", { max: 120 });
   const amount = cents(body.amount_cents, "Amount");
   const paidBy = str(body.paid_by, "Paid by");
@@ -35,7 +37,7 @@ export async function saveExpense(id: string | null, body: Record<string, unknow
     value: Number(e?.value ?? 0),
   }));
 
-  const members = await memberMap();
+  const { members, currency: cur } = group;
   for (const mid of [paidBy, ...entries.map((e) => e.member_id)]) {
     if (!members.has(mid)) throw new HttpError(400, "One of the selected people no longer exists.");
   }
@@ -43,7 +45,7 @@ export async function saveExpense(id: string | null, body: Record<string, unknow
   const split = computeSplits(amount, splitType, entries);
   if (!split.ok) throw new HttpError(400, split.error);
 
-  const { data, error } = await db().rpc("save_expense", {
+  const { data, error } = await timed("save_expense rpc", db().rpc("save_expense", {
     p_id: id,
     p_description: description,
     p_amount_cents: amount,
@@ -53,16 +55,13 @@ export async function saveExpense(id: string | null, body: Record<string, unknow
     p_expense_date: expenseDate,
     p_notes: notes,
     p_splits: split.shares,
-  });
+    p_activity_kind: id ? "expense_updated" : "expense_added",
+    p_activity_message: `${id ? "Updated" : "Added"} “${description}” — ${formatMoney(amount, cur)} paid by ${members.get(paidBy)!.name}`,
+    p_actor_name: typeof body.actor_name === "string" ? body.actor_name : null,
+    p_activity_amount_cents: amount,
+  }));
   if (error) throw new HttpError(error.message.includes("not found") ? 404 : 500, error.message);
 
-  const cur = await currency();
-  await logActivity({
-    kind: id ? "expense_updated" : "expense_added",
-    message: `${id ? "Updated" : "Added"} “${description}” — ${formatMoney(amount, cur)} paid by ${members.get(paidBy)!.name}`,
-    actor: body.actor,
-    amount_cents: amount,
-  });
   return { id: data as string };
 }
 

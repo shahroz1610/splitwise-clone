@@ -91,6 +91,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   const api = useCallback(
     async <T,>(method: string, path: string, body?: Record<string, unknown>): Promise<T> => {
+      const started = performance.now();
       const res = await fetch(path, {
         method,
         headers: { "content-type": "application/json" },
@@ -100,7 +101,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       // Session expired, or this member was removed from the group: re-check access.
       if (res.status === 401 || res.status === 403) await reload();
       if (!res.ok) throw new ApiError(res.status, data.error ?? "Something went wrong.");
-      await reload();
+      console.log(`[timing] ${method} ${path} ${(performance.now() - started).toFixed(0)}ms`);
+      // Refresh in the background so the dialog closes as soon as the save lands.
+      void reload();
       return data as T;
     },
     [reload],

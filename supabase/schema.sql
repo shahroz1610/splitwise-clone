@@ -78,7 +78,7 @@ alter table expense_splits enable row level security;
 alter table payments enable row level security;
 alter table activity enable row level security;
 
--- Create or update an expense together with its splits in one transaction.
+-- Create or update an expense together with its splits (and its activity entry) in one transaction.
 create or replace function save_expense(
   p_id uuid,
   p_description text,
@@ -88,7 +88,11 @@ create or replace function save_expense(
   p_split_type text,
   p_expense_date date,
   p_notes text,
-  p_splits jsonb
+  p_splits jsonb,
+  p_activity_kind text default null,
+  p_activity_message text default null,
+  p_actor_name text default null,
+  p_activity_amount_cents bigint default null
 ) returns uuid
 language plpgsql
 as $$
@@ -130,8 +134,13 @@ begin
     raise exception 'Splits (%) do not add up to the total (%)', v_total, p_amount_cents;
   end if;
 
+  if p_activity_kind is not null then
+    insert into activity (kind, message, actor_name, amount_cents)
+    values (p_activity_kind, p_activity_message, p_actor_name, p_activity_amount_cents);
+  end if;
+
   return v_id;
 end;
 $$;
 
-revoke execute on function save_expense(uuid, text, bigint, uuid, text, text, date, text, jsonb) from public, anon, authenticated;
+revoke execute on function save_expense(uuid, text, bigint, uuid, text, text, date, text, jsonb, text, text, text, bigint) from public, anon, authenticated;
